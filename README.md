@@ -1,11 +1,57 @@
-<div align="center">
+# মোল্লা বংশের ধারা (Molla Dynasty Genealogy Tree)
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+ধনাউল্লা মোল্লার বংশলতিকা এবং বংশধারা প্রদর্শনের জন্য একটি আধুনিক, ইন্টারঅ্যাক্টিভ ও ভিজ্যুয়াল ফ্যামিলি ট্রি অ্যাপ্লিকেশন।
 
-  <h1>Built with AI Studio</h2>
+---
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+## 🚀 GitHub Pages-এ লাইভ করার সহজ নিয়ম (Live on GitHub Pages)
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+এই প্রজেক্টটি **GitHub Pages Ready** করে তৈরি করা হয়েছে (`base: './'` এবং অটোমেটিক GitHub Actions Workflow সহ)।
 
-</div>
+আপনার সাইটটি লাইভ করতে নিচের ৩টি সহজ ধাপ অনুসরণ করুন:
+
+### ধাপ ১: গিটহাবে পুশ করুন (Push to GitHub)
+```bash
+git init
+git add .
+git commit -m "Initial Molla Genealogy Tree"
+git branch -M main
+git remote add origin https://github.com/<আপনার-ইউজারনেম>/<আপনার-রেপোর-নাম>.git
+git push -u origin main
+```
+
+### ধাপ ২: গিটহাব পেজেস অ্যাক্টিভ করুন (Enable GitHub Pages)
+1. আপনার GitHub রিপোজিটরির **Settings** ট্যাবে যান।
+2. বাম পাশের মেনু থেকে **Pages** অপশনে ক্লিক করুন।
+3. **Build and deployment** সেকশনে:
+   - **Source**: ড্রপডাউন থেকে **GitHub Actions** নির্বাচন করুন।
+
+### ধাপ ৩: সমাপ্ত! (Live!)
+- ১ মিনিটের মধ্যে GitHub Actions স্বয়ংক্রিয়ভাবে প্রজেক্টটি বিল্ড করে আপনার লাইভ লিঙ্ক তৈরি করে দেবে:
+  👉 `https://<আপনার-ইউজারনেম>.github.io/<আপনার-রেপোর-নাম>/`
+
+---
+
+## 🛠️ লোকাল কম্পিউটারে রান করার নিয়ম (Local Development)
+
+```bash
+# ডিপেন্ডেন্সি ইন্সটল করুন
+npm install
+
+# ডেভেলপমেন্ট সার্ভার চালু করুন
+npm run dev
+
+# প্রোডাকশন বিল্ড তৈরি করুন
+npm run build
+```
+
+---
+
+## ✨ বৈশিষ্ট্যসমূহ (Features)
+- 🌳 **মূল চিত্ররূপ (Horizontal Tree)**: মূল হস্তলিখিত খসড়ার আদলে অনুভূমিক বংশলতিকা।
+- 🌲 **উল্লম্ব বংশবৃক্ষ (Vertical Tree)**: ঐতিহ্যবাহী টপ-ডাউন ফ্যামিলি ট্রি।
+- 📑 **প্রজন্ম পরিক্রমা (Generations Matrix)**: ১ম থেকে ৭ম প্রজন্ম পর্যন্ত পূর্ণাঙ্গ বিভাজন।
+- 🔍 **শাখাভিত্তিক বিবরণ (Branch Explorer)**: ৫টি মূল শাখার বিস্তারিত রূপ।
+- ⚡ **লাইনিয়েজ ট্রেসার (Lineage Tracer)**: যেকোনো সদস্যের ওপর ক্লিক করলে ধনাউল্লা মোল্লা পর্যন্ত রক্তধারা হাইলাইট হয়।
+- 🔍 **তাত্ক্ষণিক অনুসন্ধান (Instant Search)**: বাংলা ও ইংরেজি নামে সরাসরি সার্চ।
+- 🖨️ **প্রিন্ট ফ্রেন্ডলি (Print Ready)**: পরিচ্ছন্ন প্রিন্ট ও পিডিএফ এক্সপোর্ট।

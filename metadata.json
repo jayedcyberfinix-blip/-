@@ -1,0 +1,6 @@
+{
+  "name": "Molla Family Genealogy Tree - মোল্লা বংশের ধারা",
+  "description": "Interactive visual family tree and genealogy explorer of Dhonaulla Molla's lineage spanning 6 generations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
