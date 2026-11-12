@@ -11,7 +11,8 @@ import {
   ChevronDown,
   ArrowDown,
   ArrowUp,
-  Sparkles,
+  ArrowLeft,
+  ArrowRight,
   Navigation,
 } from 'lucide-react';
 
@@ -42,14 +43,25 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
 
   // Pan & Zoom state
   const [scale, setScale] = useState<number>(0.65);
-  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 40, y: 30 });
+  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 30, y: 30 });
   const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const touchStartDistRef = useRef<number | null>(null);
+  const touchStartScaleRef = useRef<number>(scale);
+  const hasMovedRef = useRef<boolean>(false);
+
+  // Auto-detect mobile on mount for optimal default view
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setScale(0.38);
+      setPan({ x: 10, y: 30 });
+    }
+  }, []);
 
   // Collapsed state
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
 
-  const toggleCollapse = (id: string, e: React.MouseEvent) => {
+  const toggleCollapse = (id: string, e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
     setCollapsedIds((prev) => {
       const next = new Set(prev);
@@ -78,7 +90,6 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
 
   // Custom Hand-Sketch Oriented Layout Engine
   const layout = useMemo(() => {
-    // Column X positions
     const colX = {
       1: 50, // Dhonaulla Molla
       2: 50 + (nodeWidth + colGap), // 5 Sons
@@ -91,7 +102,6 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
 
     let currentY = 50;
 
-    // Helper to recursively layout descendants of Wazed Ali's children
     function layoutSubtree(memberId: string, depth: number): TreeNode | null {
       const member = MEMBERS_MAP.get(memberId);
       if (!member) return null;
@@ -129,7 +139,6 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
       };
     }
 
-    // 1. Layout Wazed Ali's branches (Generation 4 downwards)
     const wazedAliChildrenIds = [
       'nazrul_islam',
       'samsul_alam',
@@ -146,7 +155,6 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
       if (node) wazedChildrenNodes.push(node);
     }
 
-    // 2. Position Wazed Ali Molla (Gen 3) centered relative to his children
     const firstWazedChildY = wazedChildrenNodes[0]?.y ?? 100;
     const lastWazedChildY = wazedChildrenNodes[wazedChildrenNodes.length - 1]?.y ?? 400;
     const wazedAliY = (firstWazedChildY + lastWazedChildY) / 2;
@@ -162,7 +170,6 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
       children: collapsedIds.has('wazed_ali') ? [] : wazedChildrenNodes,
     };
 
-    // Torabuddin's daughter
     const torabuddinDaughterMember = MEMBERS_MAP.get('torabuddin_daughter');
     const torabuddinDaughterNode: TreeNode | null = torabuddinDaughterMember
       ? {
@@ -176,7 +183,6 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
         }
       : null;
 
-    // 3. Position Torabuddin Molla (Gen 2) aligned horizontally with Wazed Ali Molla
     const torabuddinY = wazedAliY;
     const torabuddinMember = MEMBERS_MAP.get('torabuddin')!;
     const torabChildren = [wazedAliNode];
@@ -192,8 +198,6 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
       children: collapsedIds.has('torabuddin') ? [] : torabChildren,
     };
 
-    // 4. Place 5 Sons of Dhonaulla Molla in Column 2 compactly
-    // Haran above Torabuddin; Jorap, Tamez, Nidan below Torabuddin
     const sonSpacing = nodeHeight + 24;
     const haranNode: TreeNode = {
       member: MEMBERS_MAP.get('haran')!,
@@ -237,7 +241,6 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
 
     const fiveSons = [haranNode, torabuddinNode, jorapNode, tamezNode, nidanNode];
 
-    // 5. Position Dhonaulla Molla (Gen 1) centered at Torabuddin
     const dhonaullaMember = MEMBERS_MAP.get('dhonaulla')!;
     const dhonaullaNode: TreeNode = {
       member: dhonaullaMember,
@@ -292,15 +295,13 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
     return { allNodes: nodes, allLinks: links };
   }, [layout, highlightedPathIds]);
 
-  // NATURAL SCROLL & ZOOM LOGIC
+  // WHEEL PAN & ZOOM
   const handleWheel = (e: React.WheelEvent) => {
-    // If user holds Ctrl or Cmd, or pinches, ZOOM:
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
       const zoomFactor = e.deltaY > 0 ? 0.94 : 1.06;
-      setScale((prev) => Math.min(Math.max(prev * zoomFactor, 0.2), 2.2));
+      setScale((prev) => Math.min(Math.max(prev * zoomFactor, 0.18), 2.2));
     } else {
-      // NATURAL PAN/SCROLL: Wheel scrolls vertically! Shift+wheel scrolls horizontally!
       setPan((prev) => ({
         x: prev.x - (e.shiftKey ? e.deltaY : e.deltaX),
         y: prev.y - (e.shiftKey ? 0 : e.deltaY),
@@ -308,61 +309,100 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
     }
   };
 
-  // Drag Panning
+  // MOUSE DRAG
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
     setIsDragging(true);
-    setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    hasMovedRef.current = false;
+    dragStartRef.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging) return;
+    hasMovedRef.current = true;
     setPan({
-      x: e.clientX - dragStart.x,
-      y: e.clientY - dragStart.y,
+      x: e.clientX - dragStartRef.current.x,
+      y: e.clientY - dragStartRef.current.y,
     });
   };
 
   const handleMouseUp = () => setIsDragging(false);
 
-  // Jump to specific branch coordinates
-  const jumpTo = (targetX: number, targetY: number, customScale = 0.75) => {
+  // MOBILE TOUCH HANDLING (Single Finger Pan + Two Finger Pinch Zoom)
+  const handleTouchStart = (e: React.TouchEvent) => {
+    hasMovedRef.current = false;
+    if (e.touches.length === 1) {
+      setIsDragging(true);
+      dragStartRef.current = {
+        x: e.touches[0].clientX - pan.x,
+        y: e.touches[0].clientY - pan.y,
+      };
+      touchStartDistRef.current = null;
+    } else if (e.touches.length === 2) {
+      setIsDragging(false);
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      touchStartDistRef.current = dist;
+      touchStartScaleRef.current = scale;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    hasMovedRef.current = true;
+    if (e.touches.length === 1 && isDragging) {
+      setPan({
+        x: e.touches[0].clientX - dragStartRef.current.x,
+        y: e.touches[0].clientY - dragStartRef.current.y,
+      });
+    } else if (e.touches.length === 2 && touchStartDistRef.current !== null) {
+      const newDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const ratio = newDist / touchStartDistRef.current;
+      const newScale = Math.min(Math.max(touchStartScaleRef.current * ratio, 0.18), 2.2);
+      setScale(newScale);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+    touchStartDistRef.current = null;
+  };
+
+  // Jump to specific coordinates
+  const jumpTo = (targetX: number, targetY: number, customScale?: number) => {
     if (!containerRef.current) return;
     const viewWidth = containerRef.current.clientWidth;
     const viewHeight = containerRef.current.clientHeight;
+    const targetScale = customScale ?? (viewWidth < 768 ? 0.45 : 0.75);
 
-    setScale(customScale);
+    setScale(targetScale);
     setPan({
-      x: viewWidth / 2 - targetX * customScale,
-      y: viewHeight / 2 - targetY * customScale,
+      x: viewWidth / 2 - targetX * targetScale,
+      y: viewHeight / 2 - targetY * targetScale,
     });
   };
 
-  const scrollToTop = () => {
-    setPan((prev) => ({ ...prev, y: 40 }));
-  };
-
-  const scrollToBottom = () => {
-    if (!containerRef.current) return;
-    const viewHeight = containerRef.current.clientHeight;
-    setPan((prev) => ({
-      ...prev,
-      y: -(layout.totalHeight * scale - viewHeight + 200),
-    }));
-  };
-
-  const resetView = () => {
-    setScale(0.65);
-    setPan({ x: 40, y: 30 });
+  const panDelta = (dx: number, dy: number) => {
+    setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
   };
 
   const fitView = () => {
     if (!containerRef.current) return;
     const viewWidth = containerRef.current.clientWidth;
     const viewHeight = containerRef.current.clientHeight;
-    const calculatedScale = Math.min(viewWidth / 2500, viewHeight / layout.totalHeight, 0.6);
-    setScale(Math.max(calculatedScale, 0.28));
-    setPan({ x: 20, y: 20 });
+    const calculatedScale = Math.min(viewWidth / 2500, viewHeight / layout.totalHeight);
+    setScale(Math.max(calculatedScale, 0.22));
+    setPan({ x: 20, y: 30 });
+  };
+
+  const resetView = () => {
+    const isMobile = window.innerWidth < 768;
+    setScale(isMobile ? 0.38 : 0.65);
+    setPan({ x: isMobile ? 10 : 30, y: 30 });
   };
 
   // Generation column markers
@@ -377,7 +417,7 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
   ];
 
   return (
-    <div className="relative w-full h-[calc(100vh-4rem)] overflow-hidden bg-stone-50 dark:bg-stone-950 select-none">
+    <div className="relative w-full h-[calc(100vh-4rem)] overflow-hidden bg-stone-50 dark:bg-stone-950 select-none touch-none">
       {/* Background Dots */}
       <div
         className="absolute inset-0 pointer-events-none opacity-30 dark:opacity-20"
@@ -387,112 +427,137 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
         }}
       />
 
-      {/* QUICK BRANCH JUMPER BAR (Allows instant navigation to any branch without scrolling trouble) */}
-      <div className="absolute top-3 left-4 right-4 z-20 flex items-center justify-between gap-2 pointer-events-none">
-        <div className="flex items-center gap-1.5 p-1 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md rounded-xl border border-stone-200 dark:border-stone-800 shadow-sm overflow-x-auto no-scrollbar pointer-events-auto max-w-[calc(100%-240px)]">
-          <span className="text-[11px] font-bold text-stone-400 dark:text-stone-500 px-2 shrink-0 flex items-center gap-1">
+      {/* QUICK BRANCH JUMPER BAR (Clean Horizontal Scrollbar) */}
+      <div className="absolute top-2 left-2 right-2 sm:top-3 sm:left-4 sm:right-4 z-20 flex items-center justify-between gap-2 pointer-events-none">
+        <div className="flex items-center gap-1.5 p-1 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md rounded-xl border border-stone-200 dark:border-stone-800 shadow-sm overflow-x-auto no-scrollbar pointer-events-auto max-w-full">
+          <span className="text-[10px] sm:text-[11px] font-bold text-stone-400 dark:text-stone-500 px-1.5 sm:px-2 shrink-0 flex items-center gap-1">
             <Navigation className="w-3 h-3 text-emerald-500" />
-            <span>{lang === 'bn' ? 'দ্রুত যান:' : 'Jump to:'}</span>
+            <span className="hidden xs:inline">{lang === 'bn' ? 'যান:' : 'Jump:'}</span>
           </span>
 
           <button
-            onClick={() => jumpTo(50, layout.rootNode?.y ?? 500, 0.8)}
-            className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            onClick={() => jumpTo(50, layout.rootNode?.y ?? 500)}
+            className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-800 dark:text-stone-200 transition-colors whitespace-nowrap shrink-0 cursor-pointer min-h-[32px] flex items-center"
           >
-            {lang === 'bn' ? 'ধনাউল্লা ও ৫ ভাই' : 'Root & 5 Brothers'}
+            {lang === 'bn' ? 'ধনাউল্লা ও ৫ ভাই' : 'Patriarch & Sons'}
           </button>
 
           <button
-            onClick={() => jumpTo(50 + (nodeWidth + colGap) * 2, layout.rootNode?.y ?? 500, 0.85)}
-            className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            onClick={() => jumpTo(50 + (nodeWidth + colGap) * 2, layout.rootNode?.y ?? 500)}
+            className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 transition-colors whitespace-nowrap shrink-0 cursor-pointer min-h-[32px] flex items-center"
           >
             {lang === 'bn' ? 'ওয়াজেদ আলী ❤️ আফছুন্নাহার' : 'Wazed Ali ❤️ Afchunnahar'}
           </button>
 
           <button
-            onClick={() => jumpTo(50 + (nodeWidth + colGap) * 3, 200, 0.75)}
-            className="px-2.5 py-1 text-xs font-medium rounded-lg bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 hover:bg-sky-100 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            onClick={() => jumpTo(50 + (nodeWidth + colGap) * 3, 200)}
+            className="px-2.5 py-1 text-xs font-medium rounded-lg bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 hover:bg-sky-100 transition-colors whitespace-nowrap shrink-0 cursor-pointer min-h-[32px] flex items-center"
           >
-            {lang === 'bn' ? '১. নজরুল ইসলাম শাখা' : '1. Nazrul Islam'}
+            {lang === 'bn' ? '১. নজরুল ইসলাম' : '1. Nazrul'}
           </button>
 
           <button
-            onClick={() => jumpTo(50 + (nodeWidth + colGap) * 3, 750, 0.75)}
-            className="px-2.5 py-1 text-xs font-medium rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            onClick={() => jumpTo(50 + (nodeWidth + colGap) * 3, 750)}
+            className="px-2.5 py-1 text-xs font-medium rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 transition-colors whitespace-nowrap shrink-0 cursor-pointer min-h-[32px] flex items-center"
           >
-            {lang === 'bn' ? '২. সামসুল আলম শাখা' : '2. Samsul Alam'}
+            {lang === 'bn' ? '২. সামসুল আলম' : '2. Samsul'}
           </button>
 
           <button
-            onClick={() => jumpTo(50 + (nodeWidth + colGap) * 3, 1450, 0.75)}
-            className="px-2.5 py-1 text-xs font-medium rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            onClick={() => jumpTo(50 + (nodeWidth + colGap) * 3, 1450)}
+            className="px-2.5 py-1 text-xs font-medium rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100 transition-colors whitespace-nowrap shrink-0 cursor-pointer min-h-[32px] flex items-center"
           >
-            {lang === 'bn' ? '৩. আবু মোস্তফা শাখা' : '3. Abu Mostofa'}
+            {lang === 'bn' ? '৩. আবু মোস্তফা' : '3. Abu Mostofa'}
           </button>
 
           <button
-            onClick={() => jumpTo(50 + (nodeWidth + colGap) * 3, 1850, 0.75)}
-            className="px-2.5 py-1 text-xs font-medium rounded-lg bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 hover:bg-violet-100 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            onClick={() => jumpTo(50 + (nodeWidth + colGap) * 3, 1850)}
+            className="px-2.5 py-1 text-xs font-medium rounded-lg bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 hover:bg-violet-100 transition-colors whitespace-nowrap shrink-0 cursor-pointer min-h-[32px] flex items-center"
           >
-            {lang === 'bn' ? '৪. মোহাম্মদ আলী শাখা' : '4. Mohammad Ali'}
+            {lang === 'bn' ? '৪. মোহাম্মদ আলী' : '4. Mohammad Ali'}
           </button>
 
           <button
-            onClick={() => jumpTo(50 + (nodeWidth + colGap) * 3, 2150, 0.75)}
-            className="px-2.5 py-1 text-xs font-medium rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            onClick={() => jumpTo(50 + (nodeWidth + colGap) * 3, 2150)}
+            className="px-2.5 py-1 text-xs font-medium rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 transition-colors whitespace-nowrap shrink-0 cursor-pointer min-h-[32px] flex items-center"
           >
-            {lang === 'bn' ? '৫. আহাম্মেদ আলী শাখা' : '5. Ahammed Ali'}
+            {lang === 'bn' ? '৫. আহাম্মেদ আলী' : '5. Ahammed Ali'}
           </button>
 
           <button
-            onClick={() => jumpTo(50 + (nodeWidth + colGap) * 5, 200, 0.85)}
-            className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            onClick={() => jumpTo(50 + (nodeWidth + colGap) * 5, 200)}
+            className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 transition-colors whitespace-nowrap shrink-0 cursor-pointer min-h-[32px] flex items-center"
           >
-            {lang === 'bn' ? '👶 ইয়াদ / জায়েদ আহমেদ' : '👶 Jayed / Iyad'}
-          </button>
-        </div>
-
-        {/* Scroll Up & Scroll Down Quick Buttons */}
-        <div className="flex items-center gap-1 p-1 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md rounded-xl border border-stone-200 dark:border-stone-800 shadow-sm pointer-events-auto shrink-0">
-          <button
-            onClick={scrollToTop}
-            className="p-1.5 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg transition-colors cursor-pointer flex items-center gap-1 text-xs font-medium"
-            title="Scroll to Top"
-          >
-            <ArrowUp className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{lang === 'bn' ? 'শীর্ষে' : 'Top'}</span>
-          </button>
-          <div className="w-px h-4 bg-stone-200 dark:bg-stone-800" />
-          <button
-            onClick={scrollToBottom}
-            className="p-1.5 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg transition-colors cursor-pointer flex items-center gap-1 text-xs font-medium"
-            title="Scroll to Bottom"
-          >
-            <ArrowDown className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{lang === 'bn' ? 'নিচে' : 'Bottom'}</span>
+            {lang === 'bn' ? '👶 ইয়াদ / জায়েদ' : '👶 Jayed / Iyad'}
           </button>
         </div>
       </div>
 
-      {/* Floating Zoom & Canvas Controls */}
-      <div className="absolute bottom-20 right-4 z-20 flex flex-col items-center gap-1 p-1.5 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xl">
+      {/* MOBILE & DESKTOP FLOATING CONTROLLER (Bottom Right) */}
+      <div className="absolute bottom-20 right-3 sm:bottom-24 sm:right-5 z-20 flex flex-col items-center gap-1.5 p-1.5 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xl pointer-events-auto">
+        {/* Mobile D-Pad arrows for easy thumb navigation */}
+        <div className="flex flex-col items-center gap-1 pb-1 border-b border-stone-200 dark:border-stone-800">
+          <button
+            type="button"
+            onClick={() => panDelta(0, 150)}
+            className="w-8 h-8 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-300 flex items-center justify-center transition-colors cursor-pointer active:scale-95"
+            title="Pan Up"
+            aria-label="Pan Up"
+          >
+            <ArrowUp className="w-4 h-4" />
+          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => panDelta(150, 0)}
+              className="w-8 h-8 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-300 flex items-center justify-center transition-colors cursor-pointer active:scale-95"
+              title="Pan Left"
+              aria-label="Pan Left"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => panDelta(-150, 0)}
+              className="w-8 h-8 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-300 flex items-center justify-center transition-colors cursor-pointer active:scale-95"
+              title="Pan Right"
+              aria-label="Pan Right"
+            >
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={() => panDelta(0, -150)}
+            className="w-8 h-8 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-300 flex items-center justify-center transition-colors cursor-pointer active:scale-95"
+            title="Pan Down"
+            aria-label="Pan Down"
+          >
+            <ArrowDown className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Zoom Controls */}
         <button
+          type="button"
           onClick={() => setScale((s) => Math.min(s + 0.15, 2.2))}
-          className="p-2 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl transition-colors cursor-pointer"
+          className="w-8 h-8 rounded-lg text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 flex items-center justify-center transition-colors cursor-pointer active:scale-95"
           title="Zoom In"
+          aria-label="Zoom In"
         >
           <ZoomIn className="w-4 h-4" />
         </button>
 
-        {/* Zoom percentage readout */}
         <span className="text-[10px] font-mono font-bold text-stone-600 dark:text-stone-300 py-0.5 tabular-nums">
           {Math.round(scale * 100)}%
         </span>
 
         <button
-          onClick={() => setScale((s) => Math.max(s - 0.15, 0.2))}
-          className="p-2 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl transition-colors cursor-pointer"
+          type="button"
+          onClick={() => setScale((s) => Math.max(s - 0.15, 0.18))}
+          className="w-8 h-8 rounded-lg text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 flex items-center justify-center transition-colors cursor-pointer active:scale-95"
           title="Zoom Out"
+          aria-label="Zoom Out"
         >
           <ZoomOut className="w-4 h-4" />
         </button>
@@ -500,38 +565,45 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
         <div className="w-6 h-px bg-stone-200 dark:bg-stone-800 my-0.5" />
 
         <button
+          type="button"
           onClick={fitView}
-          className="p-2 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl transition-colors cursor-pointer"
-          title="Fit All on Screen"
+          className="w-8 h-8 rounded-lg text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 flex items-center justify-center transition-colors cursor-pointer active:scale-95"
+          title="Fit to Screen"
+          aria-label="Fit to Screen"
         >
           <Maximize2 className="w-4 h-4" />
         </button>
 
         <button
+          type="button"
           onClick={resetView}
-          className="p-2 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl transition-colors cursor-pointer"
+          className="w-8 h-8 rounded-lg text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 flex items-center justify-center transition-colors cursor-pointer active:scale-95"
           title="Reset"
+          aria-label="Reset"
         >
           <RotateCcw className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Mouse scroll hint */}
-      <div className="absolute bottom-2 left-4 z-20 pointer-events-none text-[11px] text-stone-400 dark:text-stone-500">
+      {/* Touch & Scroll Hint */}
+      <div className="hidden sm:block absolute bottom-2 left-4 z-20 pointer-events-none text-[11px] text-stone-400 dark:text-stone-500">
         {lang === 'bn'
-          ? '💡 মাউস ড্র্যাগ করে টানুন বা স্ক্রল করুন। জুম করতে Ctrl চেপে মাউস চাকা ঘুরান।'
-          : '💡 Click & drag to pan, or mouse scroll up/down. Hold Ctrl + wheel to zoom.'}
+          ? '💡 আঙুল দিয়ে টেনে প্যান করুন। দুই আঙুলে পিঞ্চ করে জুম করুন।'
+          : '💡 Swipe with one finger to pan. Pinch with two fingers to zoom.'}
       </div>
 
-      {/* Main Canvas Area */}
+      {/* Main Touch-Friendly Canvas Area */}
       <div
         ref={containerRef}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
         onWheel={handleWheel}
-        className={`w-full h-full cursor-grab active:cursor-grabbing ${
+        className={`w-full h-full cursor-grab active:cursor-grabbing touch-none ${
           isDragging ? 'cursor-grabbing' : ''
         }`}
       >
@@ -577,7 +649,6 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
             style={{ width: '3200px', height: `${layout.totalHeight + 500}px` }}
           >
             {allLinks.map((link, idx) => {
-              // Smooth step curve (orthogonal path matching user's sketch)
               const midX = (link.fromX + link.toX) / 2;
               const pathD = `M ${link.fromX} ${link.fromY} C ${midX} ${link.fromY}, ${midX} ${link.toY}, ${link.toX} ${link.toY}`;
 
@@ -630,7 +701,6 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
                 'border-amber-400 ring-2 ring-amber-400/20 bg-amber-50/40 dark:bg-amber-950/30';
             }
 
-            // Special highlighted border for Wazed Ali Molla to emphasize Wazed Ali ❤️ Afchunnahar
             const isWazedAli = member.id === 'wazed_ali';
             if (isWazedAli && !isSelected && !isInPath) {
               borderStyle =
@@ -647,7 +717,12 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
             return (
               <div
                 key={node.member.id}
-                onClick={() => onSelectMember(member.id)}
+                onClick={() => {
+                  // Only open if it wasn't a deliberate drag
+                  if (!hasMovedRef.current) {
+                    onSelectMember(member.id);
+                  }
+                }}
                 style={{
                   position: 'absolute',
                   left: `${node.x}px`,
@@ -676,6 +751,7 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
 
                   {hasChildren && (
                     <button
+                      type="button"
                       onClick={(e) => toggleCollapse(member.id, e)}
                       className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors flex items-center gap-0.5 cursor-pointer shrink-0"
                     >
