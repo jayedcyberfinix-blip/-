@@ -1,4 +1,5 @@
 # মোল্লা বংশের ধারা (Molla Dynasty Genealogy Tree)
+**System Developer: JAYED**
 
 ধনাউল্লা মোল্লার বংশলতিকা এবং বংশধারা প্রদর্শনের জন্য একটি আধুনিক, ইন্টারঅ্যাক্টিভ ও ভিজ্যুয়াল ফ্যামিলি ট্রি অ্যাপ্লিকেশন।
 
@@ -6,29 +7,35 @@
 
 ## 🚀 GitHub Pages-এ লাইভ করার সহজ নিয়ম (Live on GitHub Pages)
 
-এই প্রজেক্টটি **GitHub Pages Ready** করে তৈরি করা হয়েছে (`base: './'` এবং অটোমেটিক GitHub Actions Workflow সহ)।
+এই প্রজেক্টটি **১০০% GitHub Pages Ready** করে তৈরি করা হয়েছে। 
 
-আপনার সাইটটি লাইভ করতে নিচের ৩টি সহজ ধাপ অনুসরণ করুন:
-
-### ধাপ ১: গিটহাবে পুশ করুন (Push to GitHub)
+### গিটহাবে আপলোড করার কমান্ড:
 ```bash
 git init
 git add .
-git commit -m "Initial Molla Genealogy Tree"
+git commit -m "Molla Family Tree Live"
 git branch -M main
 git remote add origin https://github.com/<আপনার-ইউজারনেম>/<আপনার-রেপোর-নাম>.git
 git push -u origin main
 ```
 
-### ধাপ ২: গিটহাব পেজেস অ্যাক্টিভ করুন (Enable GitHub Pages)
-1. আপনার GitHub রিপোজিটরির **Settings** ট্যাবে যান।
-2. বাম পাশের মেনু থেকে **Pages** অপশনে ক্লিক করুন।
-3. **Build and deployment** সেকশনে:
-   - **Source**: ড্রপডাউন থেকে **GitHub Actions** নির্বাচন করুন।
+---
 
-### ধাপ ৩: সমাপ্ত! (Live!)
-- ১ মিনিটের মধ্যে GitHub Actions স্বয়ংক্রিয়ভাবে প্রজেক্টটি বিল্ড করে আপনার লাইভ লিঙ্ক তৈরি করে দেবে:
-  👉 `https://<আপনার-ইউজারনেম>.github.io/<আপনার-রেপোর-নাম>/`
+### 🌐 GitHub-এ লাইভ করার ২টি সহজ উপায় (যেকোনো একটি ব্যবহার করুন):
+
+#### উপায় ১ (সবচেয়ে সহজ - No Build / Instant Live):
+1. আপনার GitHub রিপোজিটরির **Settings**-এ যান।
+2. বাম পাশের মেনু থেকে **Pages**-এ ক্লিক করুন।
+3. **Build and deployment** সেকশনে:
+   - **Source**: `Deploy from a branch` নির্বাচন করুন।
+   - **Branch**: `main` সিলেক্ট করুন এবং ফোল্ডার সিলেক্ট করুন `/docs`।
+   - **Save** বাটনে ক্লিক করুন।
+4. ব্যস! রিপোজিটরিতে তৈরি করা `/docs` ফোল্ডার এবং `.nojekyll` থাকায় ৩০ সেকেন্ডের মধ্যে আপনার সাইট লাইভ হয়ে যাবে!
+
+#### উপায় ২ (GitHub Actions অটোমেশন):
+1. আপনার GitHub রিপোজিটরির **Settings** -> **Pages**-এ যান।
+2. **Source** ড্রপডাউন থেকে **GitHub Actions** নির্বাচন করুন।
+3. প্রোজেক্টে থাকা `.github/workflows/deploy.yml` স্বয়ংক্রিয়ভাবে প্রজেক্টটি বিল্ড করে লাইভ করে দেবে।
 
 ---
 
@@ -36,12 +43,12 @@ git push -u origin main
 
 ```bash
 # ডিপেন্ডেন্সি ইন্সটল করুন
-npm install
+npm install --legacy-peer-deps
 
 # ডেভেলপমেন্ট সার্ভার চালু করুন
 npm run dev
 
-# প্রোডাকশন বিল্ড তৈরি করুন
+# প্রোডাকশন বিল্ড ও docs আপডেট
 npm run build
 ```
 
