@@ -31,6 +31,11 @@ export interface FamilyMember {
   childrenIds: string[];
 }
 
-export type ViewMode = 'sketch_horizontal' | 'vertical_tree' | 'generation_matrix' | 'branch_view';
+export type ViewMode =
+  | 'sketch_horizontal'
+  | 'vertical_tree'
+  | 'generation_matrix'
+  | 'branch_view'
+  | 'statistics';
 
 export type Language = 'bn' | 'en';

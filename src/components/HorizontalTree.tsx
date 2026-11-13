@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo, useEffect } from 'react';
+import React, { useState, useRef, useMemo, useLayoutEffect, useEffect, useCallback } from 'react';
 import { FamilyMember, Language } from '../types/genealogy';
 import { MEMBERS_MAP, GENERATION_LABELS } from '../data/familyData';
 import {
@@ -21,6 +21,7 @@ interface HorizontalTreeProps {
   selectedMemberId: string | null;
   onSelectMember: (id: string) => void;
   highlightedPathIds: Set<string>;
+  highlightFitKey?: number;
 }
 
 interface TreeNode {
@@ -38,25 +39,19 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
   selectedMemberId,
   onSelectMember,
   highlightedPathIds,
+  highlightFitKey = 0,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Pan & Zoom state
   const [scale, setScale] = useState<number>(0.65);
-  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 30, y: 30 });
+  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 20, y: 20 });
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const touchStartDistRef = useRef<number | null>(null);
-  const touchStartScaleRef = useRef<number>(scale);
+  const touchStartScaleRef = useRef<number>(0.65);
   const hasMovedRef = useRef<boolean>(false);
-
-  // Auto-detect mobile on mount for optimal default view
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
-      setScale(0.38);
-      setPan({ x: 10, y: 30 });
-    }
-  }, []);
+  const hasInitializedRef = useRef<boolean>(false);
 
   // Collapsed state
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
@@ -71,36 +66,25 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
     });
   };
 
-  const expandAll = () => setCollapsedIds(new Set());
-  const collapseAll = () => {
-    const ids = new Set<string>();
-    MEMBERS_MAP.forEach((m) => {
-      if (m.childrenIds.length > 0 && m.generation >= 4) {
-        ids.add(m.id);
-      }
-    });
-    setCollapsedIds(ids);
-  };
-
   // Node Dimensions
-  const nodeWidth = 260;
-  const nodeHeight = 84;
-  const colGap = 90;
-  const rowGap = 20;
+  const nodeWidth = 240;
+  const nodeHeight = 82;
+  const colGap = 72;
+  const rowGap = 16;
 
   // Custom Hand-Sketch Oriented Layout Engine
   const layout = useMemo(() => {
     const colX = {
-      1: 50, // Dhonaulla Molla
-      2: 50 + (nodeWidth + colGap), // 5 Sons
-      3: 50 + (nodeWidth + colGap) * 2, // Wazed Ali Molla
-      4: 50 + (nodeWidth + colGap) * 3, // Wazed Ali's children (Nazrul, Samsul, etc.)
-      5: 50 + (nodeWidth + colGap) * 4, // Grandchildren
-      6: 50 + (nodeWidth + colGap) * 5, // Great-grandchildren
-      7: 50 + (nodeWidth + colGap) * 6, // Great-great-grandchildren
+      1: 30, // Dhonaulla Molla
+      2: 30 + (nodeWidth + colGap), // 5 Sons
+      3: 30 + (nodeWidth + colGap) * 2, // Wazed Ali Molla
+      4: 30 + (nodeWidth + colGap) * 3, // Wazed Ali's children
+      5: 30 + (nodeWidth + colGap) * 4, // Grandchildren
+      6: 30 + (nodeWidth + colGap) * 5, // Great-grandchildren
+      7: 30 + (nodeWidth + colGap) * 6, // Great-great-grandchildren
     };
 
-    let currentY = 50;
+    let currentY = 64;
 
     function layoutSubtree(memberId: string, depth: number): TreeNode | null {
       const member = MEMBERS_MAP.get(memberId);
@@ -126,7 +110,7 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
         yPos = (firstY + lastY) / 2;
       }
 
-      const xPos = colX[depth as keyof typeof colX] || depth * (nodeWidth + colGap) + 50;
+      const xPos = colX[depth as keyof typeof colX] || depth * (nodeWidth + colGap) + 30;
 
       return {
         member,
@@ -175,7 +159,7 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
       ? {
           member: torabuddinDaughterMember,
           x: colX[3],
-          y: wazedAliY + nodeHeight + 25,
+          y: wazedAliY + nodeHeight + 24,
           width: nodeWidth,
           height: nodeHeight,
           isExpanded: true,
@@ -198,7 +182,7 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
       children: collapsedIds.has('torabuddin') ? [] : torabChildren,
     };
 
-    const sonSpacing = nodeHeight + 24;
+    const sonSpacing = nodeHeight + 20;
     const haranNode: TreeNode = {
       member: MEMBERS_MAP.get('haran')!,
       x: colX[2],
@@ -252,14 +236,22 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
       children: collapsedIds.has('dhonaulla') ? [] : fiveSons,
     };
 
-    const maxY = Math.max(currentY, nidanNode.y + nodeHeight) + 400;
+    const maxY = Math.max(currentY, nidanNode.y + nodeHeight) + 200;
 
-    return { rootNode: dhonaullaNode, totalHeight: maxY };
+    return {
+      rootNode: dhonaullaNode,
+      totalHeight: maxY,
+      torabuddinY,
+      haranY: haranNode.y,
+      wazedAliY,
+      colX,
+    };
   }, [collapsedIds]);
 
-  // Flatten nodes & links
-  const { allNodes, allLinks } = useMemo(() => {
+  // Flatten nodes & links + lookup map
+  const { allNodes, allLinks, nodeMap } = useMemo(() => {
     const nodes: TreeNode[] = [];
+    const map = new Map<string, TreeNode>();
     const links: {
       fromX: number;
       fromY: number;
@@ -272,6 +264,7 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
 
     function traverse(node: TreeNode) {
       nodes.push(node);
+      map.set(node.member.id, node);
       for (const child of node.children) {
         const isHighlighted =
           highlightedPathIds.has(node.member.id) && highlightedPathIds.has(child.member.id);
@@ -292,8 +285,125 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
     if (layout.rootNode) {
       traverse(layout.rootNode);
     }
-    return { allNodes: nodes, allLinks: links };
+    return { allNodes: nodes, allLinks: links, nodeMap: map };
   }, [layout, highlightedPathIds]);
+
+  // Frame initial view cleanly on the core diagram (Dhonaulla -> 5 Sons -> Wazed Ali -> Branches)
+  const centerCoreDiagram = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return false;
+    const viewWidth = el.clientWidth;
+    const viewHeight = el.clientHeight;
+    if (viewWidth === 0 || viewHeight === 0) return false;
+
+    const isMobile = viewWidth < 768;
+    // Target width: columns 1..3 (920px) on mobile, columns 1..4 (1300px) on desktop
+    const targetSpanWidth = isMobile ? 930 : 1320;
+    const targetScale = isMobile
+      ? Math.min(Math.max((viewWidth - 20) / targetSpanWidth, 0.34), 0.55)
+      : Math.min(Math.max((viewWidth - 40) / targetSpanWidth, 0.52), 0.78);
+
+    // Center vertically around the 5-sons / root / Wazed Ali cluster
+    const clusterCenterY = layout.torabuddinY + nodeHeight * 0.9;
+    const topBarOffset = 28; // space below the quick-jumper bar
+
+    setScale(targetScale);
+    setPan({
+      x: isMobile ? 10 : 24,
+      y: viewHeight / 2 - clusterCenterY * targetScale + topBarOffset,
+    });
+    return true;
+  }, [layout.torabuddinY]);
+
+  useLayoutEffect(() => {
+    if (hasInitializedRef.current) return;
+    if (centerCoreDiagram()) {
+      hasInitializedRef.current = true;
+      return;
+    }
+
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      if (!hasInitializedRef.current && centerCoreDiagram()) {
+        hasInitializedRef.current = true;
+        ro.disconnect();
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [centerCoreDiagram]);
+
+  const lastFittedKeyRef = useRef<number>(0);
+
+  // Expand any collapsed nodes on highlighted path and frame the highlighted relationship
+  useEffect(() => {
+    if (!highlightFitKey || highlightFitKey === lastFittedKeyRef.current || highlightedPathIds.size === 0) {
+      return;
+    }
+
+    let expandedAny = false;
+    setCollapsedIds((prev) => {
+      const next = new Set(prev);
+      highlightedPathIds.forEach((id) => {
+        if (next.has(id)) {
+          next.delete(id);
+          expandedAny = true;
+        }
+      });
+      return expandedAny ? next : prev;
+    });
+
+    // If nodes were just expanded, wait for next layout/nodeMap pass before framing
+    if (expandedAny) return;
+
+    const el = containerRef.current;
+    if (!el) return;
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    let count = 0;
+
+    highlightedPathIds.forEach((id) => {
+      const n = nodeMap.get(id);
+      if (n) {
+        minX = Math.min(minX, n.x);
+        minY = Math.min(minY, n.y);
+        maxX = Math.max(maxX, n.x + n.width);
+        maxY = Math.max(maxY, n.y + n.height);
+        count++;
+      }
+    });
+
+    if (count === 0) return;
+
+    const viewWidth = el.clientWidth;
+    const viewHeight = el.clientHeight;
+    if (viewWidth === 0 || viewHeight === 0) return;
+
+    const padX = viewWidth < 768 ? 48 : 96;
+    const padY = viewWidth < 768 ? 110 : 120;
+    const boxW = Math.max(maxX - minX, nodeWidth);
+    const boxH = Math.max(maxY - minY, nodeHeight);
+
+    const targetScale = Math.min(
+      Math.max(Math.min((viewWidth - padX) / boxW, (viewHeight - padY) / boxH), 0.24),
+      0.92
+    );
+
+    const boxCenterX = (minX + maxX) / 2;
+    const boxCenterY = (minY + maxY) / 2;
+
+    lastFittedKeyRef.current = highlightFitKey;
+    hasInitializedRef.current = true;
+    setScale(targetScale);
+    setPan({
+      x: viewWidth / 2 - boxCenterX * targetScale,
+      y: viewHeight / 2 - boxCenterY * targetScale - 12,
+    });
+  }, [highlightFitKey, highlightedPathIds, nodeMap]);
 
   // WHEEL PAN & ZOOM
   const handleWheel = (e: React.WheelEvent) => {
@@ -319,7 +429,12 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging) return;
-    hasMovedRef.current = true;
+    if (
+      Math.abs(e.clientX - dragStartRef.current.x - pan.x) > 3 ||
+      Math.abs(e.clientY - dragStartRef.current.y - pan.y) > 3
+    ) {
+      hasMovedRef.current = true;
+    }
     setPan({
       x: e.clientX - dragStartRef.current.x,
       y: e.clientY - dragStartRef.current.y,
@@ -350,13 +465,15 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    hasMovedRef.current = true;
     if (e.touches.length === 1 && isDragging) {
-      setPan({
-        x: e.touches[0].clientX - dragStartRef.current.x,
-        y: e.touches[0].clientY - dragStartRef.current.y,
-      });
+      const nextX = e.touches[0].clientX - dragStartRef.current.x;
+      const nextY = e.touches[0].clientY - dragStartRef.current.y;
+      if (Math.abs(nextX - pan.x) > 4 || Math.abs(nextY - pan.y) > 4) {
+        hasMovedRef.current = true;
+      }
+      setPan({ x: nextX, y: nextY });
     } else if (e.touches.length === 2 && touchStartDistRef.current !== null) {
+      hasMovedRef.current = true;
       const newDist = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
         e.touches[0].clientY - e.touches[1].clientY
@@ -372,17 +489,21 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
     touchStartDistRef.current = null;
   };
 
-  // Jump to specific coordinates
-  const jumpTo = (targetX: number, targetY: number, customScale?: number) => {
-    if (!containerRef.current) return;
+  // Jump dynamically to any member node by ID
+  const jumpToMember = (memberId: string, customScale?: number) => {
+    const node = nodeMap.get(memberId);
+    if (!node || !containerRef.current) return;
     const viewWidth = containerRef.current.clientWidth;
     const viewHeight = containerRef.current.clientHeight;
-    const targetScale = customScale ?? (viewWidth < 768 ? 0.45 : 0.75);
+    const targetScale = customScale ?? (viewWidth < 768 ? 0.55 : 0.8);
+
+    const centerX = node.x + node.width / 2;
+    const centerY = node.y + node.height / 2;
 
     setScale(targetScale);
     setPan({
-      x: viewWidth / 2 - targetX * targetScale,
-      y: viewHeight / 2 - targetY * targetScale,
+      x: viewWidth / 2 - centerX * targetScale,
+      y: viewHeight / 2 - centerY * targetScale,
     });
   };
 
@@ -394,30 +515,28 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
     if (!containerRef.current) return;
     const viewWidth = containerRef.current.clientWidth;
     const viewHeight = containerRef.current.clientHeight;
-    const calculatedScale = Math.min(viewWidth / 2500, viewHeight / layout.totalHeight);
-    setScale(Math.max(calculatedScale, 0.22));
-    setPan({ x: 20, y: 30 });
+    const calculatedScale = Math.min((viewWidth - 32) / 2200, (viewHeight - 80) / layout.totalHeight);
+    setScale(Math.max(calculatedScale, 0.2));
+    setPan({ x: 16, y: 52 });
   };
 
   const resetView = () => {
-    const isMobile = window.innerWidth < 768;
-    setScale(isMobile ? 0.38 : 0.65);
-    setPan({ x: isMobile ? 10 : 30, y: 30 });
+    centerCoreDiagram();
   };
 
-  // Generation column markers
+  // Place generation column headers right above the topmost nodes in each column
   const generationColumns = [
-    { gen: 1, x: 50 },
-    { gen: 2, x: 50 + (nodeWidth + colGap) },
-    { gen: 3, x: 50 + (nodeWidth + colGap) * 2 },
-    { gen: 4, x: 50 + (nodeWidth + colGap) * 3 },
-    { gen: 5, x: 50 + (nodeWidth + colGap) * 4 },
-    { gen: 6, x: 50 + (nodeWidth + colGap) * 5 },
-    { gen: 7, x: 50 + (nodeWidth + colGap) * 6 },
+    { gen: 1, x: layout.colX[1], y: layout.torabuddinY - 38 },
+    { gen: 2, x: layout.colX[2], y: layout.haranY - 38 },
+    { gen: 3, x: layout.colX[3], y: layout.wazedAliY - 38 },
+    { gen: 4, x: layout.colX[4], y: 18 },
+    { gen: 5, x: layout.colX[5], y: 18 },
+    { gen: 6, x: layout.colX[6], y: 18 },
+    { gen: 7, x: layout.colX[7], y: 18 },
   ];
 
   return (
-    <div className="relative w-full h-[calc(100vh-4rem)] overflow-hidden bg-stone-50 dark:bg-stone-950 select-none touch-none">
+    <div className="relative w-full h-full overflow-hidden bg-stone-50 dark:bg-stone-950 select-none touch-none">
       {/* Background Dots */}
       <div
         className="absolute inset-0 pointer-events-none opacity-30 dark:opacity-20"
@@ -427,7 +546,7 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
         }}
       />
 
-      {/* QUICK BRANCH JUMPER BAR (Clean Horizontal Scrollbar) */}
+      {/* QUICK BRANCH JUMPER BAR */}
       <div className="absolute top-2 left-2 right-2 sm:top-3 sm:left-4 sm:right-4 z-20 flex items-center justify-between gap-2 pointer-events-none">
         <div className="flex items-center gap-1.5 p-1 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md rounded-xl border border-stone-200 dark:border-stone-800 shadow-sm overflow-x-auto no-scrollbar pointer-events-auto max-w-full">
           <span className="text-[10px] sm:text-[11px] font-bold text-stone-400 dark:text-stone-500 px-1.5 sm:px-2 shrink-0 flex items-center gap-1">
@@ -436,56 +555,64 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
           </span>
 
           <button
-            onClick={() => jumpTo(50, layout.rootNode?.y ?? 500)}
+            type="button"
+            onClick={() => centerCoreDiagram()}
             className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-800 dark:text-stone-200 transition-colors whitespace-nowrap shrink-0 cursor-pointer min-h-[32px] flex items-center"
           >
             {lang === 'bn' ? 'ধনাউল্লা ও ৫ ভাই' : 'Patriarch & Sons'}
           </button>
 
           <button
-            onClick={() => jumpTo(50 + (nodeWidth + colGap) * 2, layout.rootNode?.y ?? 500)}
+            type="button"
+            onClick={() => jumpToMember('wazed_ali')}
             className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 transition-colors whitespace-nowrap shrink-0 cursor-pointer min-h-[32px] flex items-center"
           >
             {lang === 'bn' ? 'ওয়াজেদ আলী ❤️ আফছুন্নাহার' : 'Wazed Ali ❤️ Afchunnahar'}
           </button>
 
           <button
-            onClick={() => jumpTo(50 + (nodeWidth + colGap) * 3, 200)}
+            type="button"
+            onClick={() => jumpToMember('nazrul_islam')}
             className="px-2.5 py-1 text-xs font-medium rounded-lg bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 hover:bg-sky-100 transition-colors whitespace-nowrap shrink-0 cursor-pointer min-h-[32px] flex items-center"
           >
             {lang === 'bn' ? '১. নজরুল ইসলাম' : '1. Nazrul'}
           </button>
 
           <button
-            onClick={() => jumpTo(50 + (nodeWidth + colGap) * 3, 750)}
+            type="button"
+            onClick={() => jumpToMember('samsul_alam')}
             className="px-2.5 py-1 text-xs font-medium rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 transition-colors whitespace-nowrap shrink-0 cursor-pointer min-h-[32px] flex items-center"
           >
             {lang === 'bn' ? '২. সামসুল আলম' : '2. Samsul'}
           </button>
 
           <button
-            onClick={() => jumpTo(50 + (nodeWidth + colGap) * 3, 1450)}
+            type="button"
+            onClick={() => jumpToMember('abu_mostofa')}
             className="px-2.5 py-1 text-xs font-medium rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100 transition-colors whitespace-nowrap shrink-0 cursor-pointer min-h-[32px] flex items-center"
           >
             {lang === 'bn' ? '৩. আবু মোস্তফা' : '3. Abu Mostofa'}
           </button>
 
           <button
-            onClick={() => jumpTo(50 + (nodeWidth + colGap) * 3, 1850)}
+            type="button"
+            onClick={() => jumpToMember('mohammad_ali')}
             className="px-2.5 py-1 text-xs font-medium rounded-lg bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 hover:bg-violet-100 transition-colors whitespace-nowrap shrink-0 cursor-pointer min-h-[32px] flex items-center"
           >
             {lang === 'bn' ? '৪. মোহাম্মদ আলী' : '4. Mohammad Ali'}
           </button>
 
           <button
-            onClick={() => jumpTo(50 + (nodeWidth + colGap) * 3, 2150)}
+            type="button"
+            onClick={() => jumpToMember('ahammed_ali')}
             className="px-2.5 py-1 text-xs font-medium rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 transition-colors whitespace-nowrap shrink-0 cursor-pointer min-h-[32px] flex items-center"
           >
             {lang === 'bn' ? '৫. আহাম্মেদ আলী' : '5. Ahammed Ali'}
           </button>
 
           <button
-            onClick={() => jumpTo(50 + (nodeWidth + colGap) * 5, 200)}
+            type="button"
+            onClick={() => jumpToMember('jayed_ahmed')}
             className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 transition-colors whitespace-nowrap shrink-0 cursor-pointer min-h-[32px] flex items-center"
           >
             {lang === 'bn' ? '👶 ইয়াদ / জায়েদ' : '👶 Jayed / Iyad'}
@@ -494,8 +621,7 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
       </div>
 
       {/* MOBILE & DESKTOP FLOATING CONTROLLER (Bottom Right) */}
-      <div className="absolute bottom-20 right-3 sm:bottom-24 sm:right-5 z-20 flex flex-col items-center gap-1.5 p-1.5 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xl pointer-events-auto">
-        {/* Mobile D-Pad arrows for easy thumb navigation */}
+      <div className="absolute bottom-4 right-3 sm:bottom-6 sm:right-5 z-20 flex flex-col items-center gap-1.5 p-1.5 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md rounded-2xl border border-stone-200 dark:border-stone-800 shadow-xl pointer-events-auto">
         <div className="flex flex-col items-center gap-1 pb-1 border-b border-stone-200 dark:border-stone-800">
           <button
             type="button"
@@ -568,8 +694,8 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
           type="button"
           onClick={fitView}
           className="w-8 h-8 rounded-lg text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 flex items-center justify-center transition-colors cursor-pointer active:scale-95"
-          title="Fit to Screen"
-          aria-label="Fit to Screen"
+          title="Fit Full Tree"
+          aria-label="Fit Full Tree"
         >
           <Maximize2 className="w-4 h-4" />
         </button>
@@ -578,8 +704,8 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
           type="button"
           onClick={resetView}
           className="w-8 h-8 rounded-lg text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 flex items-center justify-center transition-colors cursor-pointer active:scale-95"
-          title="Reset"
-          aria-label="Reset"
+          title="Reset View"
+          aria-label="Reset View"
         >
           <RotateCcw className="w-4 h-4" />
         </button>
@@ -588,8 +714,8 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
       {/* Touch & Scroll Hint */}
       <div className="hidden sm:block absolute bottom-2 left-4 z-20 pointer-events-none text-[11px] text-stone-400 dark:text-stone-500">
         {lang === 'bn'
-          ? '💡 আঙুল দিয়ে টেনে প্যান করুন। দুই আঙুলে পিঞ্চ করে জুম করুন।'
-          : '💡 Swipe with one finger to pan. Pinch with two fingers to zoom.'}
+          ? '💡 মাউস বা আঙুল দিয়ে টেনে প্যান করুন। দুই আঙুলে পিঞ্চ বা Ctrl+স্ক্রল করে জুম করুন।'
+          : '💡 Drag or swipe to pan. Pinch or Ctrl+scroll to zoom.'}
       </div>
 
       {/* Main Touch-Friendly Canvas Area */}
@@ -612,13 +738,13 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
             transformOrigin: '0 0',
             transition: isDragging ? 'none' : 'transform 0.08s ease-out',
-            width: '3200px',
-            height: `${layout.totalHeight + 500}px`,
+            width: '2600px',
+            height: `${layout.totalHeight + 300}px`,
             position: 'relative',
           }}
         >
           {/* Generation Column Header Markers */}
-          {generationColumns.map(({ gen, x }) => {
+          {generationColumns.map(({ gen, x, y }) => {
             const genInfo = GENERATION_LABELS[gen];
             return (
               <div
@@ -626,12 +752,12 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
                 style={{
                   position: 'absolute',
                   left: `${x}px`,
-                  top: '10px',
+                  top: `${y}px`,
                   width: `${nodeWidth}px`,
                 }}
                 className="pointer-events-none text-left"
               >
-                <div className="flex items-center gap-2 border-b-2 border-stone-300 dark:border-stone-700 pb-1.5">
+                <div className="flex items-center gap-2 border-b-2 border-stone-300 dark:border-stone-700 pb-1">
                   <span className="text-xs font-bold uppercase tracking-wider text-stone-800 dark:text-stone-200">
                     {lang === 'bn' ? genInfo?.bn : genInfo?.en}
                   </span>
@@ -646,7 +772,7 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
           {/* SVG Links Layer */}
           <svg
             className="absolute top-0 left-0 w-full h-full pointer-events-none"
-            style={{ width: '3200px', height: `${layout.totalHeight + 500}px` }}
+            style={{ width: '2600px', height: `${layout.totalHeight + 300}px` }}
           >
             {allLinks.map((link, idx) => {
               const midX = (link.fromX + link.toX) / 2;
@@ -718,7 +844,6 @@ export const HorizontalTree: React.FC<HorizontalTreeProps> = ({
               <div
                 key={node.member.id}
                 onClick={() => {
-                  // Only open if it wasn't a deliberate drag
                   if (!hasMovedRef.current) {
                     onSelectMember(member.id);
                   }

@@ -8,6 +8,8 @@ interface BranchExplorerProps {
   selectedMemberId: string | null;
   onSelectMember: (id: string) => void;
   highlightedPathIds: Set<string>;
+  activeBranchId?: string;
+  onBranchChange?: (branchId: string) => void;
 }
 
 export const BranchExplorer: React.FC<BranchExplorerProps> = ({
@@ -15,8 +17,16 @@ export const BranchExplorer: React.FC<BranchExplorerProps> = ({
   selectedMemberId,
   onSelectMember,
   highlightedPathIds,
+  activeBranchId,
+  onBranchChange,
 }) => {
-  const [selectedBranchId, setSelectedBranchId] = useState<string>('nazrul');
+  const [internalBranchId, setInternalBranchId] = useState<string>('nazrul');
+  const selectedBranchId =
+    activeBranchId && activeBranchId !== 'all' ? activeBranchId : internalBranchId;
+  const setSelectedBranchId = (id: string) => {
+    setInternalBranchId(id);
+    onBranchChange?.(id);
+  };
 
   const currentBranch = BRANCHES.find((b) => b.id === selectedBranchId) || BRANCHES[0];
 

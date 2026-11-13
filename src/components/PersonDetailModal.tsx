@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { FamilyMember, Language } from '../types/genealogy';
 import { MEMBERS_MAP, getLineagePath, getChildrenOf, GENERATION_LABELS } from '../data/familyData';
-import { X, Heart, User, ArrowRight, GitBranch, MapPin, Sparkles } from 'lucide-react';
+import { X, Heart, ArrowRight, Sparkles, Compass } from 'lucide-react';
 
 interface PersonDetailModalProps {
   isOpen: boolean;
@@ -9,6 +9,7 @@ interface PersonDetailModalProps {
   onClose: () => void;
   lang: Language;
   onSelectMember: (id: string) => void;
+  onFindRelation?: (memberId: string) => void;
 }
 
 export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
@@ -17,6 +18,7 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
   onClose,
   lang,
   onSelectMember,
+  onFindRelation,
 }) => {
   // Listen for Escape key
   useEffect(() => {
@@ -246,7 +248,24 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-stone-100 dark:border-stone-800 bg-stone-50 dark:bg-stone-900/60 flex justify-end">
+        <div className="p-4 border-t border-stone-100 dark:border-stone-800 bg-stone-50 dark:bg-stone-900/60 flex items-center justify-between gap-2">
+          {onFindRelation ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onFindRelation(member.id);
+              }}
+              className="px-3.5 py-2 text-xs font-semibold text-amber-900 dark:text-amber-200 bg-amber-100/80 dark:bg-amber-950/60 hover:bg-amber-200/80 dark:hover:bg-amber-900/60 border border-amber-300/70 dark:border-amber-800 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+            >
+              <Compass className="w-3.5 h-3.5" />
+              <span>{lang === 'bn' ? 'আত্মীয়তা নির্ণয়' : 'Find Relationship'}</span>
+            </button>
+          ) : (
+            <div />
+          )}
+
           <button
             type="button"
             onClick={(e) => {
@@ -254,7 +273,7 @@ export const PersonDetailModal: React.FC<PersonDetailModalProps> = ({
               e.stopPropagation();
               onClose();
             }}
-            className="px-4 py-2 text-xs font-semibold text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-800 rounded-lg transition-colors cursor-pointer"
+            className="px-4 py-2 text-xs font-semibold text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-800 rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
           >
             {lang === 'bn' ? 'বন্ধ করুন' : 'Close'}
           </button>

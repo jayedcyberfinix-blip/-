@@ -148,7 +148,7 @@ export const VerticalTree: React.FC<VerticalTreeProps> = ({
   };
 
   return (
-    <div className="relative w-full h-[calc(100vh-4rem)] bg-stone-50 dark:bg-stone-950 overflow-auto">
+    <div className="relative w-full h-full bg-stone-50 dark:bg-stone-950 overflow-auto">
       {/* Zoom Toolbar */}
       <div className="sticky top-4 z-20 flex justify-end px-6 pointer-events-none">
         <div className="flex items-center gap-1 p-1 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md rounded-xl border border-stone-200 dark:border-stone-800 shadow-md pointer-events-auto">

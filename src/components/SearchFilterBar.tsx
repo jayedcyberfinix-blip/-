@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FamilyMember, Language } from '../types/genealogy';
 import { FAMILY_MEMBERS, BRANCHES } from '../data/familyData';
-import { Search, X, User, Heart, Filter } from 'lucide-react';
+import { Search, X, Heart, Compass } from 'lucide-react';
 
 interface SearchFilterBarProps {
   lang: Language;
@@ -10,6 +10,7 @@ interface SearchFilterBarProps {
   onSelectBranch: (branch: string | 'all') => void;
   selectedGender: 'all' | 'male' | 'female';
   onSelectGender: (gender: 'all' | 'male' | 'female') => void;
+  onOpenRelationFinder: () => void;
 }
 
 export const SearchFilterBar: React.FC<SearchFilterBarProps> = ({
@@ -19,6 +20,7 @@ export const SearchFilterBar: React.FC<SearchFilterBarProps> = ({
   onSelectBranch,
   selectedGender,
   onSelectGender,
+  onOpenRelationFinder,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -170,7 +172,7 @@ export const SearchFilterBar: React.FC<SearchFilterBarProps> = ({
           <select
             value={selectedBranch}
             onChange={(e) => onSelectBranch(e.target.value)}
-            className="px-2.5 py-1 text-[11px] rounded-lg border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900 text-stone-700 dark:text-stone-300 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+            className="px-2.5 py-1 text-[11px] rounded-lg border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900 text-stone-700 dark:text-stone-300 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer shrink-0"
           >
             <option value="all">{lang === 'bn' ? 'সকল শাখা' : 'All Branches'}</option>
             {BRANCHES.map((b) => (
@@ -179,6 +181,21 @@ export const SearchFilterBar: React.FC<SearchFilterBarProps> = ({
               </option>
             ))}
           </select>
+
+          {/* Relationship Finder Trigger */}
+          <button
+            type="button"
+            onClick={onOpenRelationFinder}
+            className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-amber-800 hover:bg-amber-900 text-white transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 shadow-xs"
+            title={
+              lang === 'bn'
+                ? 'পারিবারিক সম্পর্ক ও আত্মীয়তা নির্ণয়ক'
+                : 'Family Relationship & Kinship Finder'
+            }
+          >
+            <Compass className="w-3.5 h-3.5 shrink-0" />
+            <span>{lang === 'bn' ? 'আত্মীয়তা নির্ণয়ক' : 'Relation Finder'}</span>
+          </button>
         </div>
       </div>
     </div>

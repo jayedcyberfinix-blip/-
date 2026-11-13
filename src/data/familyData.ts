@@ -674,8 +674,8 @@ export const FAMILY_MEMBERS: FamilyMember[] = [
   // --- Branch: Abu Mostofa ---
   {
     id: 'marum_billa',
-    nameBn: '১ম ছেলে. মারুম বিল্লা',
-    nameEn: '1st Son. Marum Billa',
+    nameBn: '১ম ছেলে. মারুফ বিল্লা',
+    nameEn: '1st Son. Maruf Billa',
     gender: 'male',
     generation: 5,
     generationNameBn: '৫ম প্রজন্ম',
@@ -746,8 +746,8 @@ export const FAMILY_MEMBERS: FamilyMember[] = [
   },
   {
     id: 'abu_mostofa_daughter2',
-    nameBn: '২য় মেয়ে. আবু মোস্তফার কন্যা',
-    nameEn: '2nd Dtr. Daughter of Abu Mostofa',
+    nameBn: '২য় মেয়ে. ফাহমিদা খাতুন রিফা',
+    nameEn: '2nd Dtr. Fahmida Khatun Rifa',
     gender: 'female',
     generation: 5,
     generationNameBn: '৫ম প্রজন্ম',
@@ -758,7 +758,7 @@ export const FAMILY_MEMBERS: FamilyMember[] = [
     branchNameEn: 'Abu Mostofa Branch',
     order: 4,
     isDirectDescendant: true,
-    notesBn: 'আবু মোস্তফা ও নারগিসের ২য় মেয়ে (২ ছেলে ও ২ মেয়ে)।',
+    notesBn: 'আবু মোস্তফা ও নারগিসের ২য় মেয়ে।',
     notesEn: '2nd daughter of Abu Mostofa & Nargis.',
     childrenIds: [],
   },
@@ -1204,7 +1204,7 @@ export const FAMILY_MEMBERS: FamilyMember[] = [
     childrenIds: [],
   },
 
-  // --- Under Marum Billa ---
+  // --- Under Maruf Billa ---
   {
     id: 'inaya',
     nameBn: '১. ইনায়া',
@@ -1219,8 +1219,8 @@ export const FAMILY_MEMBERS: FamilyMember[] = [
     branchNameEn: 'Abu Mostofa Branch',
     order: 1,
     isDirectDescendant: true,
-    notesBn: 'মারুম বিল্লা ও সাবিনা ইয়াসমিনের একমাত্র মেয়ে।',
-    notesEn: 'Only daughter of Marum Billa & Sabina Yasmin.',
+    notesBn: 'মারুফ বিল্লা ও সাবিনা ইয়াসমিনের একমাত্র মেয়ে।',
+    notesEn: 'Only daughter of Maruf Billa & Sabina Yasmin.',
     childrenIds: [],
   },
 

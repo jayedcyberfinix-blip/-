@@ -1,6 +1,6 @@
 import React from 'react';
 import { ViewMode, Language } from '../types/genealogy';
-import { Network, GitBranch, Layers, Grid3X3, Printer, Globe, Code2 } from 'lucide-react';
+import { Network, GitBranch, Layers, Grid3X3, BarChart2, Printer, Globe, Code2 } from 'lucide-react';
 
 interface HeaderProps {
   currentView: ViewMode;
@@ -31,7 +31,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Zone 2: Navigation Links */}
-        <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-stone-600 dark:text-stone-300">
+        <nav className="hidden md:flex items-center gap-4 lg:gap-6 text-sm font-medium text-stone-600 dark:text-stone-300">
           <button
             onClick={() => onViewChange('sketch_horizontal')}
             className={`flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 pb-1 border-b-2 cursor-pointer ${
@@ -41,7 +41,7 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           >
             <Network className="w-4 h-4" />
-            <span>{lang === 'bn' ? 'মূল চিত্ররূপ (নকশা)' : 'Diagram (Sketch)'}</span>
+            <span>{lang === 'bn' ? 'মূল চিত্ররূপ' : 'Diagram'}</span>
           </button>
 
           <button
@@ -53,7 +53,7 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           >
             <GitBranch className="w-4 h-4" />
-            <span>{lang === 'bn' ? 'বংশবৃক্ষ (উল্লম্ব)' : 'Family Tree'}</span>
+            <span>{lang === 'bn' ? 'বংশবৃক্ষ' : 'Family Tree'}</span>
           </button>
 
           <button
@@ -77,7 +77,19 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           >
             <Grid3X3 className="w-4 h-4" />
-            <span>{lang === 'bn' ? 'শাখাভিত্তিক বিবরণ' : 'Branches'}</span>
+            <span>{lang === 'bn' ? 'শাখাভিত্তিক' : 'Branches'}</span>
+          </button>
+
+          <button
+            onClick={() => onViewChange('statistics')}
+            className={`flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 pb-1 border-b-2 cursor-pointer ${
+              currentView === 'statistics'
+                ? 'text-stone-900 dark:text-white border-stone-900 dark:border-white font-semibold'
+                : 'border-transparent hover:text-stone-900 dark:hover:text-white'
+            }`}
+          >
+            <BarChart2 className="w-4 h-4" />
+            <span>{lang === 'bn' ? 'পরিসংখ্যান' : 'Statistics'}</span>
           </button>
         </nav>
 
